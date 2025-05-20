@@ -14,9 +14,7 @@ This password will be used to **encrypt and decrypt all secrets** consistently.
 
 ```bash
 # Enter a strong password without showing it
-read -s -p "Enter encryption password: " PASSWORD
-echo "$PASSWORD" > /etc/datadog-agent/secret_password
-unset PASSWORD
+sudo /bin/bash -c 'read -s -p "Enter encryption password: " PASSWORD && echo "$PASSWORD" > /etc/datadog-agent/secret_password && unset PASSWORD'
 
 # Restrict file permissions
 chmod 600 /etc/datadog-agent/secret_password
