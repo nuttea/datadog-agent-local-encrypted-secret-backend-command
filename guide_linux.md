@@ -17,8 +17,8 @@ This password will be used to **encrypt and decrypt all secrets** consistently.
 sudo /bin/bash -c 'read -s -p "Enter encryption password: " PASSWORD && echo "$PASSWORD" > /etc/datadog-agent/secret_password && unset PASSWORD'
 
 # Restrict file permissions
-chmod 600 /etc/datadog-agent/secret_password
-chown dd-agent:dd-agent /etc/datadog-agent/secret_password
+sudo chmod 600 /etc/datadog-agent/secret_password
+sudo chown dd-agent:dd-agent /etc/datadog-agent/secret_password
 ```
 
 ---
@@ -75,8 +75,6 @@ Enable secret management by editing:
 ```yaml
 # /etc/datadog-agent/datadog.yaml
 secret_backend_command: /etc/datadog-agent/datadog_helpers.sh
-secret_backend_arguments:
-  - --secret-backend
 ```
 
 Then restart the Agent:
@@ -87,12 +85,14 @@ sudo systemctl restart datadog-agent
 
 ---
 
-### 🧪 5. Test Decryption (Optional)
+### 🧪 5. Test and Verify Your Setup
+
+#### 5.1 Test Backend Decryption Manually
 
 You can test the backend decryption manually to verify things are working:
 
 ```bash
-echo '{"version": "1.0", "secrets": ["my_db_password", "api_token"]}' | /etc/datadog-agent/datadog_helpers.sh --secret-backend
+echo '{"version": "1.0", "secrets": ["my_db_password", "api_token"]}' | sudo /etc/datadog-agent/datadog_helpers.sh --secret-backend
 ```
 
 Expected output:
@@ -103,6 +103,94 @@ Expected output:
   "api_token": {"value": "MySuperSecretAPIToken", "error": null}
 }
 ```
+
+#### 5.2 Test with the Agent's Secret Command
+
+Create a sample PostgreSQL integration configuration using your encrypted secrets:
+
+```bash
+# Create the configuration file
+sudo tee /etc/datadog-agent/conf.d/postgres.d/conf.yaml > /dev/null << 'EOF'
+init_config:
+instances:
+  - dbm: true
+    host: localhost
+    port: 5432
+    username: datadog
+    password: 'ENC[my_db_password]'
+EOF
+
+# Set proper permissions
+sudo chmod 640 /etc/datadog-agent/conf.d/postgres.d/conf.yaml
+sudo chown dd-agent:dd-agent /etc/datadog-agent/conf.d/postgres.d/conf.yaml
+
+# Restart Datadog Agent
+sudo service datadog-agent restart
+```
+
+The `ENC[secret_name]` syntax tells the Datadog Agent to retrieve and decrypt the specified secret using your secret backend command.
+
+The Agent CLI provides built-in tools to verify your secret backend implementation:
+
+```bash
+sudo datadog-agent secret
+```
+
+This will show:
+- Verification of your executable rights
+- List of detected secrets in your configuration
+- Any errors in your setup
+
+Example output:
+```
+=== Checking executable rights ===
+Executable path: /etc/datadog-agent/datadog_helpers.sh
+Check Rights: OK, the executable has the correct rights
+
+Rights Detail:
+file mode: 100700
+Owner username: dd-agent
+Group name: dd-agent
+
+=== Secrets stats ===
+Number of secrets decrypted: 2
+Secrets handle decrypted:
+- my_db_password: from <config_file>
+- api_token: from <config_file>
+```
+
+#### 5.3 Verify Secret Injection in Configurations
+
+To see how secrets are actually injected into your configurations:
+
+```bash
+sudo -u dd-agent -- datadog-agent configcheck
+```
+
+This shows all check configurations with secrets properly injected (but securely obfuscated in the output):
+
+```
+=== postgres ===
+Source: File Configuration Provider
+Instance 1:
+host: localhost
+port: 5432
+password: <obfuscated_password>
+~
+===
+```
+
+#### 5.4 Debug the Command Outside the Agent
+
+If needed, you can debug how the Agent interacts with your script:
+
+```bash
+sudo -u dd-agent bash -c "echo '{\"version\": \"1.0\", \"secrets\": [\"my_db_password\", \"api_token\"]}' | /etc/datadog-agent/datadog_helpers.sh"
+```
+
+This simulates exactly how the Agent calls the secret backend command.
+
+> 📝 **Note:** The Agent needs to be restarted to pick up changes on configuration files.
 
 ---
 
