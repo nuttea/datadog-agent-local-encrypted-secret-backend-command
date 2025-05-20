@@ -75,7 +75,9 @@ Enable secret management by editing:
 
 ```yaml
 # /etc/datadog-agent/datadog.yaml
-secret_backend_command: /etc/datadog-agent/datadog_helpers.sh --secret-backend
+secret_backend_command: 
+  - /etc/datadog-agent/datadog_helpers.sh
+  - --secret-backend
 ```
 
 Then restart the Agent:
