@@ -30,7 +30,7 @@ chown dd-agent:dd-agent /etc/datadog-agent/secret_password
 Save the full script (from the previous response) as:
 
 ```bash
-sudo curl -LJ https://github.com/nuttea/datadog-agent-local-encrypted-secret-backend-command/raw/refs/heads/main/datadog_helpers.sh -o /etc/datadog-agent/datadog_helpers.sh 
+sudo curl https://github.com/nuttea/datadog-agent-local-encrypted-secret-backend-command/raw/refs/heads/main/datadog_helpers.sh -o /etc/datadog-agent/datadog_helpers.sh
 ```
 
 Paste the script, then:
