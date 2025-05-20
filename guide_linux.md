@@ -14,9 +14,7 @@ This password will be used to **encrypt and decrypt all secrets** consistently.
 
 ```bash
 # Enter a strong password without showing it
-read -s -p "Enter encryption password: " PASSWORD
-echo "$PASSWORD" > /etc/datadog-agent/secret_password
-unset PASSWORD
+sudo /bin/bash -c 'read -s -p "Enter encryption password: " PASSWORD && echo "$PASSWORD" > /etc/datadog-agent/secret_password && unset PASSWORD'
 
 # Restrict file permissions
 chmod 600 /etc/datadog-agent/secret_password
@@ -30,7 +28,7 @@ chown dd-agent:dd-agent /etc/datadog-agent/secret_password
 Save the full script (from the previous response) as:
 
 ```bash
-sudo curl https://github.com/nuttea/datadog-agent-local-encrypted-secret-backend-command/raw/refs/heads/main/datadog_helpers.sh -o /etc/datadog-agent/datadog_helpers.sh
+sudo curl -LJ https://github.com/nuttea/datadog-agent-local-encrypted-secret-backend-command/raw/refs/heads/main/datadog_helpers.sh -o /etc/datadog-agent/datadog_helpers.sh 
 ```
 
 Paste the script, then:
@@ -54,8 +52,9 @@ sudo chown dd-agent:dd-agent /etc/datadog-agent/datadog_helpers.sh
 You can now encrypt secrets and store them with one simple command:
 
 ```bash
-sudo /etc/datadog-agent/datadog_helpers.sh encrypt_and_store_secret my_db_password "MyDatabasePassword"
-sudo /etc/datadog-agent/datadog_helpers.sh encrypt_and_store_secret api_token "MySuperSecretAPIToken"
+cd /etc/datadog-agent/
+sudo ./datadog_helpers.sh encrypt_and_store_secret my_db_password "MyDatabasePassword"
+sudo ./datadog_helpers.sh encrypt_and_store_secret api_token "MySuperSecretAPIToken"
 ```
 
 This will:
@@ -75,7 +74,9 @@ Enable secret management by editing:
 
 ```yaml
 # /etc/datadog-agent/datadog.yaml
-secret_backend_command: /etc/datadog-agent/datadog_helpers.sh --secret-backend
+secret_backend_command: /etc/datadog-agent/datadog_helpers.sh
+secret_backend_arguments:
+  - --secret-backend
 ```
 
 Then restart the Agent:

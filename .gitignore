@@ -1,0 +1,32 @@
+# Password files
+*_password
+*_token
+
+# Ignore shell script backup and temp files
+*.swp
+*.swo
+*.bak
+*.tmp
+*~
+
+# Ignore compiled shell scripts
+*.shc
+
+# Ignore PowerShell compiled files and data
+*.ps1xml
+*.psd1
+*.psm1
+*.ps1~
+*.ps1.bak
+*.ps1.tmp
+
+# Ignore logs and output
+*.log
+*.out
+
+# Ignore environment files
+.env
+
+# Ignore macOS and Windows system files
+.DS_Store
+Thumbs.db
