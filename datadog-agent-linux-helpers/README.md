@@ -80,7 +80,7 @@ secret_backend_command: /etc/datadog-agent/datadog_helpers.sh
 Then restart the Agent:
 
 ```bash
-sudo systemctl restart datadog-agent
+sudo service datadog-agent restart
 ```
 
 ---
