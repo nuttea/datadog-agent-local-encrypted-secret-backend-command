@@ -15,8 +15,35 @@ function Encrypt-Text {
         [string]$Password
     )
     Log "Encrypting text (length: $($Text.Length))"
-    $encrypted = [Convert]::ToBase64String([System.Security.Cryptography.Aes]::Create().CreateEncryptor([Text.Encoding]::UTF8.GetBytes($Password), [byte[]]::new(16)).TransformFinalBlock([Text.Encoding]::UTF8.GetBytes($Text), 0, $Text.Length))
-    return $encrypted
+    
+    try {
+        # Convert the password to a valid 256-bit key using SHA256
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        $key = $sha256.ComputeHash([Text.Encoding]::UTF8.GetBytes($Password))
+        
+        # Create a consistent IV from the first 16 bytes of SHA256(password + "IV")
+        $ivInput = $Password + "IV"
+        $iv = $sha256.ComputeHash([Text.Encoding]::UTF8.GetBytes($ivInput))[0..15]
+        
+        # Create AES encryptor with proper key and IV
+        $aes = [System.Security.Cryptography.Aes]::Create()
+        $encryptor = $aes.CreateEncryptor($key, $iv)
+        
+        # Encrypt the data
+        $plaintextBytes = [Text.Encoding]::UTF8.GetBytes($Text)
+        $encryptedBytes = $encryptor.TransformFinalBlock($plaintextBytes, 0, $plaintextBytes.Length)
+        
+        # Clean up
+        $encryptor.Dispose()
+        $aes.Dispose()
+        
+        # Return as Base64 string
+        return [Convert]::ToBase64String($encryptedBytes)
+    }
+    catch {
+        Log "ERROR: Encryption failed: $_"
+        return $null
+    }
 }
 
 function Decrypt-Text {
@@ -25,8 +52,35 @@ function Decrypt-Text {
         [string]$Password
     )
     Log "Decrypting text (length: $($EncryptedText.Length))"
-    $decrypted = [System.Text.Encoding]::UTF8.GetString([System.Security.Cryptography.Aes]::Create().CreateDecryptor([Text.Encoding]::UTF8.GetBytes($Password), [byte[]]::new(16)).TransformFinalBlock([Convert]::FromBase64String($EncryptedText), 0, [Convert]::FromBase64String($EncryptedText).Length))
-    return $decrypted
+    
+    try {
+        # Convert the password to a valid 256-bit key using SHA256
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        $key = $sha256.ComputeHash([Text.Encoding]::UTF8.GetBytes($Password))
+        
+        # Create a consistent IV from the first 16 bytes of SHA256(password + "IV")
+        $ivInput = $Password + "IV"
+        $iv = $sha256.ComputeHash([Text.Encoding]::UTF8.GetBytes($ivInput))[0..15]
+        
+        # Create AES decryptor with proper key and IV
+        $aes = [System.Security.Cryptography.Aes]::Create()
+        $decryptor = $aes.CreateDecryptor($key, $iv)
+        
+        # Decrypt the data
+        $encryptedBytes = [Convert]::FromBase64String($EncryptedText)
+        $decryptedBytes = $decryptor.TransformFinalBlock($encryptedBytes, 0, $encryptedBytes.Length)
+        
+        # Clean up
+        $decryptor.Dispose()
+        $aes.Dispose()
+        
+        # Return as string
+        return [Text.Encoding]::UTF8.GetString($decryptedBytes)
+    }
+    catch {
+        Log "ERROR: Decryption failed: $_"
+        throw
+    }
 }
 
 function Encrypt-And-Store-Secret {
