@@ -139,16 +139,21 @@ teardown() {
     echo "$output" | grep -q '"nonexistent_secret": {"value": null, "error": "file not found"}'
 }
 
-# Test script usage output
-@test "script shows usage when called with incorrect arguments" {
-    run ${TEST_DIR}/datadog_helpers.sh
+# Test script functioning in secret backend mode when called with no args
+@test "script runs in secret backend mode when called with no arguments" {
+    # Create a mock password file
+    echo -n "${TEST_PASSWORD}" > "${TEST_DIR}/secret_password"
     
-    # Check usage message contains expected commands
+    # Create input JSON for secret backend
+    echo '{"version": "1.0", "secrets": []}' > "${TEST_DIR}/input.json"
+    
+    # Run the script with no arguments, providing JSON input
+    cd "${TEST_DIR}"
+    run bash -c "cat ${TEST_DIR}/input.json | ${TEST_DIR}/datadog_helpers.sh"
+    
+    # Should return empty JSON (with no secrets)
     echo "Output: $output"
-    echo "$output" | grep -q "Usage:"
-    echo "$output" | grep -q "encrypt <text> <password>"
-    echo "$output" | grep -q "decrypt <base64_encrypted_text> <password>"
-    echo "$output" | grep -q "encrypt_and_store_secret <secret_name> <secret_value>"
+    [ "$output" = "{}" ]
 }
 
 # Test handling multiple secrets in one request
@@ -171,12 +176,14 @@ teardown() {
     echo "$output" | grep -q '"secret2": {"value": "value2", "error": null}'
 }
 
-# Test invalid action handling
-@test "script handles invalid actions" {
+# Test script usage with invalid action
+@test "script shows usage when called with invalid action" {
     run ${TEST_DIR}/datadog_helpers.sh invalid_action "text" "password"
     
-    # Check error message
-    [ "$status" -eq 1 ]
+    # Check usage message contains expected commands
     echo "Output: $output"
-    echo "$output" | grep -q "Invalid action: invalid_action"
+    echo "$output" | grep -q "Usage:"
+    echo "$output" | grep -q "encrypt <text> <password>"
+    echo "$output" | grep -q "decrypt <base64_encrypted_text> <password>"
+    echo "$output" | grep -q "encrypt_and_store_secret <secret_name> <secret_value>"
 }

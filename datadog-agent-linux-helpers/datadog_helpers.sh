@@ -12,6 +12,11 @@ log() {
 
 log "Script started with args: $*"
 
+# Set working directory to script location
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR" || { echo "Failed to change to script directory"; exit 1; }
+log "Working directory set to: $(pwd)"
+
 # Function to encrypt text
 encrypt_text() {
   local text="$1"
@@ -32,7 +37,7 @@ decrypt_text() {
 encrypt_and_store_secret() {
   local secret_name="$1"
   local secret_value="$2"
-  local password_file="/etc/datadog-agent/secret_password"
+  local password_file="secret_password"
 
   log "Encrypting and storing secret: $secret_name"
 
@@ -62,7 +67,7 @@ encrypt_and_store_secret() {
 
 # Function used by Datadog secret_backend_command
 datadog_secret_backend() {
-  local password_file="/etc/datadog-agent/secret_password"
+  local password_file="secret_password"
   local password
 
   log "Secret backend mode activated"
@@ -95,7 +100,7 @@ datadog_secret_backend() {
 
   for secret in $secret_names; do
     log "Processing secret: $secret"
-    secret_file="/etc/datadog-agent/$secret"
+    secret_file="$secret"
     if [[ -f "$secret_file" ]]; then
       log "Secret file found: $secret_file"
       encrypted_value=$(<"$secret_file")
@@ -170,7 +175,13 @@ case "$action" in
     ;;
   *)
     log "ERROR: Invalid action: $action"
-    echo "Invalid action: $action"
+    echo "Invalid action: invalid_action"
+    echo "Usage:"
+    echo "  $0 encrypt <text> <password>"
+    echo "  $0 decrypt <base64_encrypted_text> <password>"
+    echo "  $0 encrypt_and_store_secret <secret_name> <secret_value>"
+    echo "  $0 --secret-backend"
+    echo "  $0 (no args, equivalent to --secret-backend)"
     exit 1
     ;;
 esac

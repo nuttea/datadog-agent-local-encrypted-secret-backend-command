@@ -15,8 +15,8 @@ This project provides scripts and guides to implement a local encrypted secret b
 
 Choose your platform guide:
 
-- [📝 Linux Implementation Guide](guide_linux.md)
-- [📝 Windows Implementation Guide](guide_windows.md)
+- [📝 Linux Implementation Guide](datadog-agent-linux-helpers/README.md)
+- [📝 Windows Implementation Guide](datadog-agent-windows-helpers/README.md)
 
 ## How It Works
 
