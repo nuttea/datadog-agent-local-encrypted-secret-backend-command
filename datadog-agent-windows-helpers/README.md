@@ -1,138 +1,130 @@
-# Datadog Agent Encrypted Secret Backend for Windows
+# 🛠️ Guide: Secure Secret Management for Datadog Agent on Windows
 
-This PowerShell module provides secure secret management for the Datadog Agent on Windows systems.
+This guide helps you set up secret management for the Datadog Agent on Windows using the official `datadog-secret-backend` tool.
 
-## Overview
+Reference source: https://github.com/DataDog/datadog-secret-backend
 
-datadog_helpers.ps1 enables secure storage and retrieval of encrypted secrets for use with the Datadog Agent's `secret_backend_command` feature. The script offers:
+## 🔐 1. Installation
 
-- Encryption and decryption of sensitive values
-- Secure storage of encrypted secrets as files
-- A secret backend implementation compatible with Datadog Agent
-
-## Installation
-
-1. Create the required directories:
-```powershell
-New-Item -ItemType Directory -Force -Path "C:\ProgramData\Datadog"
-```
-
-2. Copy datadog_helpers.ps1 to a secure location, such as:
-```powershell
-Copy-Item datadog_helpers.ps1 "C:\ProgramData\Datadog\"
-```
-
-3. Generate a master password file:
-```powershell
-$password = ConvertTo-SecureString -AsPlainText "YourStrongPassword" -Force
-$password | ConvertFrom-SecureString | Out-File "C:\ProgramData\Datadog\secret_password"
-```
-
-4. Set appropriate permissions:
-```powershell
-$acl = Get-Acl "C:\ProgramData\Datadog\secret_password"
-$acl.SetAccessRuleProtection($true, $false)
-
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("NT AUTHORITY\SYSTEM", "FullControl", "Allow")
-$acl.AddAccessRule($rule)
-
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Administrators", "FullControl", "Allow")
-$acl.AddAccessRule($rule)
-
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("NT SERVICE\datadogagent", "Read", "Allow")
-$acl.AddAccessRule($rule)
-
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("ddagentuser", "Read", "Allow")
-$acl.AddAccessRule($rule)
-
-Set-Acl "C:\ProgramData\Datadog\secret_password" $acl
-```
-
-## Usage
-
-### (Optional) For Unsigned Script
-
-You might need to allow a powershell script, example allow Unrestricted for Users or Current Process
+### Download and Extract the Secret Backend Tool
 
 ```powershell
-Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process
+# Create directory for the secret backend
+mkdir 'C:\Program Files\datadog-secret-backend\'
 
-# TODO: Set for Datadog user
-Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process
+# Download the appropriate version (amd64 for 64-bit systems)
+Invoke-WebRequest https://github.com/DataDog/datadog-secret-backend/releases/latest/download/datadog-secret-backend-windows-amd64.zip -OutFile 'C:\Program Files\datadog-secret-backend\datadog-secret-backend-windows-amd64.zip'
+
+# Extract the zip file
+Expand-Archive -LiteralPath 'C:\Program Files\datadog-secret-backend\datadog-secret-backend-windows-amd64.zip' -DestinationPath 'C:\Program Files\datadog-secret-backend\'
+
+# Clean up the zip file
+Remove-Item 'C:\Program Files\datadog-secret-backend\datadog-secret-backend-windows-amd64.zip'
 ```
 
-### Encrypting and Storing Secrets
+> ⚠️ **Note:** For 32-bit systems, use `datadog-secret-backend-windows-386.zip` instead.
 
-```powershell
-cd C:\ProgramData\Datadog\
+## 🔒 2. Configure Security Permissions
 
-# Store an API key
-.\datadog_helpers.ps1 Encrypt-And-Store-Secret api_key "your-api-key-here"
+The Datadog Agent expects the executable to be accessible only to the `ddagentuser` on Windows:
 
-# Store a database password
-.\datadog_helpers.ps1 Encrypt-And-Store-Secret db_password "your-database-password"
-```
+1. Right-click on `datadog-secret-backend.exe` and select **Properties**
+2. Click on the **Security** tab
+3. Click **Edit** > **Advanced**
+4. Click **Disable inheritance** and choose **Remove all inherited permissions**
+5. Click **Add** > **Select a principal**
+6. Enter `ddagentuser` and click **Check Names** > **OK**
+7. Select **Full control** under permissions
+8. Click **OK** > **Apply** > **OK**
 
-### Configuring Datadog Agent
+## ⚙️ 3. Configure the Secret Backend
 
-```powershell
-# Create a secure directory
-New-Item -ItemType Directory -Force -Path "C:\ProgramData\Datadog\secure"
+### Create the Configuration File
 
-# Create a simple batch wrapper for PowerShell
-@"
-@echo off
-C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File "C:\ProgramData\Datadog\datadog_helpers.ps1" %*
-"@ | Out-File -FilePath "C:\ProgramData\Datadog\secure\run_helper.bat" -Encoding ascii
-
-# Set restrictive permissions on the wrapper
-$acl = New-Object System.Security.AccessControl.FileSecurity
-$acl.SetAccessRuleProtection($true, $false)
-
-# Allow only SYSTEM, Administrators and the specific SID mentioned in error
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("NT AUTHORITY\SYSTEM", "FullControl", "Allow")
-$acl.AddAccessRule($rule)
-
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Administrators", "FullControl", "Allow")
-$acl.AddAccessRule($rule)
-
-# Add the specific SID from your error message
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("ddagentuser", "FullControl", "Allow")
-$acl.AddAccessRule($rule)
-
-Set-Acl "C:\ProgramData\Datadog\secure\run_helper.bat" $acl
-```
-
-Update your Datadog Agent configuration file (`datadog.yaml`):
+Create a new file at `C:\Program Files\datadog-secret-backend\datadog-secret-backend.yaml`:
 
 ```yaml
-secret_backend_command: powershell -ExecutionPolicy Bypass -File C:\ProgramData\Datadog\datadog_helpers.ps1
+backends:
+  agent_secret:
+    backend_type: file.yaml
+    file_path: C:\ProgramData\Datadog\secrets.yaml
 ```
 
-Restart the Datadog Agent to apply changes:
+### Create the Secrets File
+
+Create a new file at `C:\ProgramData\Datadog\secrets.yaml` with your secrets:
+
+```yaml
+api_key: "MY_API_KEY"
+hostalias: "secretalias"
+db_password: "MyDatabasePassword"
+api_token: "MySuperSecretAPIToken"
+```
+
+> 🔐 **Security Note:** Make sure to set appropriate permissions on this file to limit access!
+
+## 🧩 4. Configure the Datadog Agent
+
+Edit the Datadog Agent configuration file at `C:\ProgramData\Datadog\datadog.yaml`:
+
+```yaml
+# Add the secret_backend_command 
+secret_backend_command: C:\Program Files\datadog-secret-backend\datadog-secret-backend.exe
+
+# Test with host aliases (optional)
+host_aliases:
+  - ENC[agent_secret:hostalias]
+```
+
+## 🔄 5. Restart the Datadog Agent
 
 ```powershell
+# Restart the Datadog Agent service
 Restart-Service -Name datadogagent
 ```
 
-## How It Works
+## 🧪 6. Test and Verify Your Setup
 
-1. The script uses AES encryption to protect secrets
-2. Encrypted secrets are stored as individual files in the script directory
-3. When Datadog Agent needs a secret, it calls this script
-4. The script decrypts requested secrets and returns them in JSON format
+### Check the Agent Configuration
 
-## Security Considerations
+```powershell
+# Check if the agent can access the secrets
+& 'C:\Program Files\Datadog\Datadog Agent\bin\agent.exe' secret
 
-- The master password file should be kept secure with restrictive permissions
-- For enhanced security, consider storing the script and secrets on an encrypted volume
-- Regularly update the master password and re-encrypt secrets
+# Expected output should show successful decryption of secrets
+```
 
-## Troubleshooting
+## 📝 Using Encrypted Secrets in Configurations
 
-Logs are written to `C:\ProgramData\Datadog\datadog_helpers.log` to help diagnose issues with the script.
+You can now use your encrypted secrets in Datadog configuration files with the `ENC[]` syntax:
 
-Common issues:
-- Permission denied: Ensure proper file permissions are set
-- Missing password file: Verify the secret_password file exists
-- Decryption failed: Check if the correct password was used for encryption
+```yaml
+# Example PostgreSQL integration using encrypted secrets
+# C:\ProgramData\Datadog\conf.d\postgres.d\conf.yaml
+init_config:
+instances:
+  - host: localhost
+    port: 5432
+    username: datadog
+    password: ENC[agent_secret:db_password]
+```
+
+### Verify Secret Injection 
+
+```powershell
+# Check if the agent can read configurations with secrets
+& 'C:\Program Files\Datadog\Datadog Agent\bin\agent.exe' configcheck
+
+# Secrets should appear as <redacted> in the output
+```
+
+## 🔧 Troubleshooting
+
+- **Permissions Issues**: Ensure `ddagentuser` has full access to both the executable and config files
+- **Command Not Found**: Verify the path in `secret_backend_command` is correct and accessible
+- **Secret Not Found**: Check the backend configuration and that your secret exists in the secrets.yaml file
+- **Check Logs**: Review `C:\ProgramData\Datadog\logs\agent.log` for errors related to the secret backend
+
+---
+
+This setup provides a secure way to manage secrets for your Datadog Agent on Windows. The secrets are stored locally and only accessible to the Datadog Agent process.
